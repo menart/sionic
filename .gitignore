@@ -1,0 +1,5 @@
+*.rar
+*.zip
+.idea/*
+*.txt
+data/*
