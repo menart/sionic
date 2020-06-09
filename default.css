@@ -1,0 +1,32 @@
+#controldiv{
+    width: 99%;
+    height: 50px;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.5);
+    margin: 10px auto;
+    border-radius: 10px;
+    background-color: #eee;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#controldiv *{
+    margin: 5px;
+}
+
+#datagrid {
+    width: 99%;
+    min-height: 10px;
+    margin: 10px auto;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.5);
+}
+
+#datagrid th {
+    background-color: darkblue;
+    color: white;
+    font-weight: bold;
+}
+
+#datagrid tr:nth-child(even) {
+    background: #CCC
+}

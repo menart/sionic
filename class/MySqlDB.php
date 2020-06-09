@@ -163,6 +163,70 @@ class MySqlDB implements DB
         }
     }
 
+    public function getDataForFront(int $page, string $order, int $count): DataFront
+    {
+        $dataFront = new DataFront();
+        $dataFront->page = $page;
+        $dataFront->recCount = $count;
+        $countRow = ['count(*) as countArticle'];
+        $result = $this->selectQuery($countRow, 'tArticle');
+        if (count($result) > 0) {
+            $pageCount = $result[0]['countArticle'];
+            if ($count > 0 && $pageCount % $count > 0)
+                $pageCount = (int)($pageCount / $count) + 1;
+            else
+                $pageCount = (int)($pageCount / $count);
+            $dataFront->pageCount = $pageCount;
+        }
+        $sql = 'select ArticleId, ArticleName, ArticleCode, ArticleWeight,';
+        $joinSql = '';
+        $whitelist = array('ArticleId', 'ArticleName', 'ArticleCode', 'ArticleWeight');
+        array_push($dataFront->fieldList, ['ArticleId', 'ИД'], ['ArticleName', 'Наименование'], ['ArticleCode', 'Код'], ['ArticleWeight', 'Вес']);
+        $listCity = $this->getList('City');
+        if (!empty($listCity)) {
+            foreach ($listCity as $city) {
+                $sql .= 'tCityArticles' . $city->getId() . '.CityArticlesCount as count' . $city->getId() . ',';
+                $sql .= 'tCityArticles' . $city->getId() . '.CityArticlesPrice as price' . $city->getId() . ',';
+                $joinSql .= ' left join tCityArticles as tCityArticles' . $city->getId() . ' ';
+                $joinSql .= 'on (tCityArticles' . $city->getId() . '.CityArticlesArticleCode = tArticle.ArticleCode ';
+                $joinSql .= 'and tCityArticles' . $city->getId() . '.CityArticlesCityId = ' . $city->getId() . ')';
+                array_push($dataFront->fieldList, ['count' . $city->getId(), 'Количество ' . $city->getName()]);
+                array_push($dataFront->fieldList, ['price' . $city->getId(), 'Цена ' . $city->getName()]);
+                array_push($whitelist,'count' . $city->getId(),'price' . $city->getId());
+            }
+        }
+        array_push($dataFront->fieldList, ['noOredr', 'Взаимозаменяемости']);
+        $sql = substr($sql, 0, -1);
+        if($order != 'noOrder' && !in_array($order,$whitelist)){
+            $order = 'ArticleId';
+        }
+        $dataFront->order = $order;
+        $sql .= ' from tArticle ' . $joinSql . ' order by '.$order.' limit :start, :end';
+        $query = $this->dbLink->prepare($sql);
+        $start = $page * $count;
+        $end = ($page + 1) * $count;
+        $query->bindParam(':start', $start,PDO::PARAM_INT);
+        $query->bindParam(':end', $end,PDO::PARAM_INT);
+        $query->execute();
+        $sqlChangePart = 'select CONCAT(tMark.markName,"-",tModel.modelName,"-",tTypeCar.typeCarName) as usageStr';
+        $sqlChangePart .= '	from tChangePart ';
+        $sqlChangePart .= 'left join tMark on (tChangePart.ChangePartMarkId=tMark.MarkId) ';
+        $sqlChangePart .= 'left join tModel on (tChangePart.ChangePartModelId=tModel.ModelId) ';
+        $sqlChangePart .= 'left join tTypeCar on (tChangePart.ChangeParttypeCarId=tTypeCar.typeCarId) ';
+        $sqlChangePart .= 'where ChangePartArticleCode = :ChangePartArticleCode';
+        while ($row = $query->fetch(PDO::FETCH_ASSOC)){
+            $queryChangePart = $this->dbLink->prepare($sqlChangePart);
+            $queryChangePart->bindParam(':ChangePartArticleCode', $row['ArticleCode'],PDO::PARAM_INT);
+            $queryChangePart->execute();
+            $usage = '';
+            while ($usageRow = $queryChangePart->fetch()){
+                $usage .= $usageRow[0].'|';
+            }
+            array_push($dataFront->fieldData, array_merge($row,array('noOrder' => $usage)));
+        }
+        return $dataFront;
+    }
+
     public function getList($className): array
     {
         $sql = array();
@@ -216,3 +280,5 @@ class MySqlDB implements DB
         return $returnArray;
     }
 }
+
+
